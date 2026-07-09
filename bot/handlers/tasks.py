@@ -418,21 +418,6 @@ async def receive_proof3(message: Message, session: AsyncSession, state: FSMCont
         except Exception:
             pass
 
-    # ── Notify Advertiser (simple — review via My Order) ──────────────────────
-    if task_created_by:
-        advertiser = await UserQueries.get_by_id(session, task_created_by)
-        if advertiser and advertiser.telegram_id not in settings.admin_ids:
-            try:
-                await message.bot.send_message(
-                    advertiser.telegram_id,
-                    f"📬 <b>নতুন জমা এসেছে!</b>\n"
-                    f"📌 {task_title} | 👤 {user.full_name}\n\n"
-                    f"📦 <b>My Order</b> বাটনে গিয়ে পর্যালোচনা করুন।",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
-
     await message.answer(
         f"✅ <b>৩টি প্রমাণ জমা হয়েছে!</b>\n\n"
         f"📌 <b>{task_title}</b>\n"
