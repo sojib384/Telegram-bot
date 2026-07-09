@@ -180,8 +180,8 @@ def get_task_keyboard(task_id: int) -> InlineKeyboardMarkup:
 
 def get_deposit_methods() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="📱 বিকাশ (bKash) — Personal", callback_data="deposit:bkash"))
-    builder.row(InlineKeyboardButton(text="💚 নগদ (Nagad) — Personal",   callback_data="deposit:nagad"))
+    builder.row(InlineKeyboardButton(text="💚 নগদ — Personal",           callback_data="deposit:nagad"))
+    builder.row(InlineKeyboardButton(text="🟡 Binance (BEP20 — USDT)",   callback_data="deposit:binance"))
     builder.row(InlineKeyboardButton(text="❌ বাতিল করুন",               callback_data="cancel"))
     return builder.as_markup()
 
