@@ -114,19 +114,27 @@ async def on_startup(bot: Bot) -> None:
     logger.info("Bot starting up...")
 
     # Create tables and apply schema changes
+    from sqlalchemy import text as sa_text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Add description_photo_id column if not exists (safe to run every time)
+        # Add description_photo_id column if not exists (safe every restart)
         try:
-            from sqlalchemy import text
-            await conn.execute(text(
+            await conn.execute(sa_text(
                 "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "
                 "description_photo_id VARCHAR(512)"
             ))
-            logger.info("Schema check: description_photo_id column ensured.")
-        except Exception as e:
-            logger.warning(f"Schema alter skipped: {e}")
-    logger.info("Database tables created/verified.")
+        except Exception:
+            pass
+        # One-time balance reset: set RESET_BALANCES=1 in Railway env vars
+        if os.environ.get("RESET_BALANCES") == "1":
+            try:
+                await conn.execute(sa_text(
+                    "UPDATE users SET balance=0, total_earned=0, total_withdrawn=0"
+                ))
+                logger.info("✅ All user balances reset to 0 (RESET_BALANCES=1)")
+            except Exception as e:
+                logger.error(f"Balance reset failed: {e}")
+    logger.info("Database ready. v2")
 
     me = await bot.get_me()
     logger.info(f"Running as @{me.username} (ID: {me.id})")
