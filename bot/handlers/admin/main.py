@@ -4,7 +4,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text as sa_text
 
 from database.queries import UserQueries, TaskQueries, TransactionQueries, BotSettingsQueries
 from database.models import User
@@ -181,3 +181,22 @@ async def do_broadcast(message: Message, session: AsyncSession, state: FSMContex
         f"❌ ব্যর্থ: <b>{failed}</b>",
         parse_mode="HTML",
     )
+
+
+@router.message(Command("reset_balances"))
+async def reset_all_balances(message: Message, session: AsyncSession) -> None:
+    """Admin: reset every user's balance, total_earned, total_withdrawn to 0."""
+    await message.answer("⏳ সব user-এর ব্যালেন্স ০ করা হচ্ছে...")
+    try:
+        await session.execute(
+            sa_text("UPDATE users SET balance=0, total_earned=0, total_withdrawn=0")
+        )
+        await session.commit()
+        result = await session.execute(sa_text("SELECT COUNT(*) FROM users"))
+        count = result.scalar()
+        await message.answer(
+            f"✅ <b>সম্পন্ন!</b>\n\nমোট <b>{count}</b> জন user-এর ব্যালেন্স ০ করা হয়েছে।",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        await message.answer(f"❌ Error: {e}")
