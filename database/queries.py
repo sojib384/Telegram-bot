@@ -196,6 +196,7 @@ class TaskQueries:
         task_url: Optional[str] = None,
         total_slots: int = 0,
         deadline: Optional[datetime] = None,
+        description_photo_id: Optional[str] = None,
     ) -> Task:
         from database.models import TaskType
         task = Task(
@@ -207,6 +208,7 @@ class TaskQueries:
             created_by=created_by,
             total_slots=total_slots,
             deadline=deadline,
+            description_photo_id=description_photo_id,
         )
         session.add(task)
         await session.commit()
