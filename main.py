@@ -112,9 +112,25 @@ async def auto_approve_scheduler(bot: Bot) -> None:
 
 async def on_startup(bot: Bot) -> None:
     logger.info("Bot starting up...")
+    from sqlalchemy import text as sa_text
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables created/verified.")
+        try:
+            await conn.execute(sa_text(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "
+                "description_photo_id VARCHAR(512)"
+            ))
+        except Exception:
+            pass
+        if os.environ.get("RESET_BALANCES") == "1":
+            try:
+                await conn.execute(sa_text(
+                    "UPDATE users SET balance=0, total_earned=0, total_withdrawn=0"
+                ))
+                logger.info("✅ All balances reset to 0 (RESET_BALANCES=1)")
+            except Exception as e:
+                logger.error(f"Balance reset failed: {e}")
+    logger.info("Database ready. v3")
 
     me = await bot.get_me()
     logger.info(f"Running as @{me.username} (ID: {me.id})")
