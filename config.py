@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     SUPPORT_USERNAME: str = ""
 
     CURRENCY_SYMBOL: str = "৳"
-    MIN_WITHDRAW: float = 100.0
+    MIN_WITHDRAW: float = 50.0
     WITHDRAW_FEE: float = 10.0
     REFERRAL_SIGNUP_BONUS: float = 50.0
     REFERRAL_WITHDRAWAL_COMMISSION: float = 0.10
