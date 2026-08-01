@@ -86,6 +86,7 @@ class Task(Base):
     reward: Mapped[float] = mapped_column(Float, nullable=False)
     task_type: Mapped[TaskType] = mapped_column(Enum(TaskType), nullable=False)
     task_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    description_photo_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
     created_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     total_slots: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
