@@ -75,7 +75,7 @@ async def available_tasks(message: Message, session: AsyncSession) -> None:
         await message.answer(
             f"📌 <b>{task.title}</b>{slots_info}\n"
             f"💰 পুরস্কার: <b>{C}{task.reward:,.0f}</b>\n"
-            f"📝 {task.description[:200]}",
+            f"📝 {task.description}",
             reply_markup=get_task_keyboard(task.id),
             parse_mode="HTML",
         )
@@ -995,7 +995,7 @@ async def _show_summary(send_fn, data: dict, user_balance: float = 0.0) -> None:
         f"📋 <b>কাজের সারসংক্ষেপ</b>\n"
         f"🏷 {cat_name} — {subcategory}\n"
         + (f"🔗 {task_link}\n" if task_link else "")
-        + f"📝 নিয়ম: {description[:100]}{'…' if len(description) > 100 else ''}\n"
+        + f"📝 নিয়ম: {description[:300]}{'…' if len(description) > 300 else ''}\n"
         f"📸১: {proof1[:60]} | 📸২: {proof2[:60]}\n"
         f"📝৩: {proof3[:60]}\n"
         f"{'─'*24}\n"
