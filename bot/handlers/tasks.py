@@ -72,13 +72,24 @@ async def available_tasks(message: Message, session: AsyncSession) -> None:
     await message.answer(f"📋 <b>{len(tasks)}টি কাজ পাওয়া গেছে:</b>", parse_mode="HTML")
     for task in tasks[:10]:
         slots_info = f" | 🎯 {task.completed_count}/{task.total_slots}" if task.total_slots > 0 else ""
-        await message.answer(
+        task_text = (
             f"📌 <b>{task.title}</b>{slots_info}\n"
             f"💰 পুরস্কার: <b>{C}{task.reward:,.0f}</b>\n"
-            f"📝 {task.description}",
-            reply_markup=get_task_keyboard(task.id),
-            parse_mode="HTML",
+            f"📝 {task.description}"
         )
+        if getattr(task, "description_photo_id", None):
+            await message.answer_photo(
+                photo=task.description_photo_id,
+                caption=task_text,
+                reply_markup=get_task_keyboard(task.id),
+                parse_mode="HTML",
+            )
+        else:
+            await message.answer(
+                task_text,
+                reply_markup=get_task_keyboard(task.id),
+                parse_mode="HTML",
+            )
 
 
 # ── My Work ────────────────────────────────────────────────────────────────────
@@ -871,6 +882,7 @@ async def on_task_confirmed(callback: CallbackQuery, session: AsyncSession, stat
     subcategory  = data["subcategory"]
     task_link    = data.get("task_link", "")
     description  = data.get("task_description", "")
+    description_photo_id = data.get("task_description_photo_id")
     proof1       = data.get("proof1_label", "")
     proof2       = data.get("proof2_label", "")
     proof3       = data.get("proof3_label", "")
@@ -909,7 +921,8 @@ async def on_task_confirmed(callback: CallbackQuery, session: AsyncSession, stat
     title = f"{cat_name} — {subcategory}"
     task = await TaskQueries.create(session=session, title=title,
         description=full_description, reward=reward, task_type="custom",
-        created_by=user.id, task_url=task_link, total_slots=num_workers)
+        created_by=user.id, task_url=task_link, total_slots=num_workers,
+        description_photo_id=description_photo_id)
 
     new_balance = user.balance - total_cost
 
