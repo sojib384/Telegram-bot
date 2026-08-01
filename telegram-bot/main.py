@@ -113,27 +113,19 @@ async def auto_approve_scheduler(bot: Bot) -> None:
 async def on_startup(bot: Bot) -> None:
     logger.info("Bot starting up...")
 
-    # Run alembic migrations first (adds new columns, resets balances, etc.)
-    try:
-        import subprocess
-        alembic_dir = Path(__file__).parent
-        result = subprocess.run(
-            ["python", "-m", "alembic", "upgrade", "head"],
-            cwd=str(alembic_dir),
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0:
-            logger.info(f"Alembic migration OK: {result.stdout.strip() or 'no changes'}")
-        else:
-            logger.warning(f"Alembic migration warning: {result.stderr.strip()}")
-    except Exception as e:
-        logger.error(f"Alembic migration error: {e}")
-
-    # Ensure any remaining tables exist
+    # Create tables and apply schema changes
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Add description_photo_id column if not exists (safe to run every time)
+        try:
+            from sqlalchemy import text
+            await conn.execute(text(
+                "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "
+                "description_photo_id VARCHAR(512)"
+            ))
+            logger.info("Schema check: description_photo_id column ensured.")
+        except Exception as e:
+            logger.warning(f"Schema alter skipped: {e}")
     logger.info("Database tables created/verified.")
 
     me = await bot.get_me()
