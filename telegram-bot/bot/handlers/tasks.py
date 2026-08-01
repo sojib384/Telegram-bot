@@ -36,7 +36,8 @@ PLATFORM_FEE_PCT = 0.20
 class CreateTaskStates(StatesGroup):
     choosing_category    = State()
     choosing_subcategory = State()
-    entering_description = State()   # Advertiser writes task rules
+    entering_description = State()       # Advertiser writes task rules (text or photo)
+    entering_description_text = State()  # After photo: enter text description separately
     entering_proof1      = State()   # Screenshot proof 1 requirement
     entering_proof2      = State()   # Screenshot proof 2 requirement
     entering_proof3      = State()   # Text proof requirement
@@ -669,39 +670,67 @@ async def on_subcategory_selected(callback: CallbackQuery, state: FSMContext) ->
         parse_mode="HTML",
     )
     await callback.message.answer(
-        "নিয়ম লিখুন:\n\n"
-        "📝 <i>শুধু লেখা পাঠালেও হবে</i>\n"
-        "🖼 <i>ছবি + caption পাঠালে ছবি সহ নিয়ম সেভ হবে</i>",
+        "ধাপ ৩ — কাজের নিয়ম:\n\n"
+        "🖼 <b>ছবি দিতে চাইলে</b> — শুধু ছবি পাঠান, তারপর লেখা চাওয়া হবে\n"
+        "📝 <b>শুধু লেখা দিতে চাইলে</b> — এখনই লিখে পাঠান",
         reply_markup=_cancel_inline(),
         parse_mode="HTML",
     )
     await callback.answer()
 
 
-# Step 3 → Description entered → ask proof 1
+# Step 3 → Photo received → ask for text description separately
+@router.message(StateFilter(CreateTaskStates.entering_description), F.photo)
+async def on_description_photo(message: Message, state: FSMContext) -> None:
+    photo_id = message.photo[-1].file_id
+    # If caption provided along with photo, use it directly
+    caption = (message.caption or "").strip()
+    if len(caption) >= 10:
+        await state.update_data(task_description=caption, task_description_photo_id=photo_id)
+        await _go_to_proof1(message, state)
+        return
+    # No caption or too short → ask for text separately
+    await state.update_data(task_description_photo_id=photo_id)
+    await state.set_state(CreateTaskStates.entering_description_text)
+    await message.answer(
+        "✅ ছবি পেয়েছি!\n\nএখন কাজের <b>নিয়ম/বিবরণ</b> লিখে পাঠান:",
+        reply_markup=_cancel_inline(),
+        parse_mode="HTML",
+    )
+
+
+# Step 3b → Text description after photo
+@router.message(StateFilter(CreateTaskStates.entering_description_text))
+async def on_description_text_after_photo(message: Message, state: FSMContext) -> None:
+    if not message.text:
+        await message.answer("❌ শুধু লেখা পাঠান:", reply_markup=_cancel_inline())
+        return
+    text = message.text.strip()
+    if len(text) < 10:
+        await message.answer("❌ কমপক্ষে ১০ অক্ষর লিখুন:", reply_markup=_cancel_inline())
+        return
+    await state.update_data(task_description=text)
+    await _go_to_proof1(message, state)
+
+
+# Step 3 → Text-only description
 @router.message(StateFilter(CreateTaskStates.entering_description))
 async def on_description_entered(message: Message, state: FSMContext) -> None:
-    # Accept photo with caption
-    if message.photo:
-        photo_id = message.photo[-1].file_id
-        caption = (message.caption or "").strip()
-        if len(caption) < 10:
-            await message.answer(
-                "❌ ছবির সাথে caption-এ কমপক্ষে ১০ অক্ষরের নিয়ম লিখুন:",
-                reply_markup=_cancel_inline(),
-            )
-            return
-        await state.update_data(task_description=caption, task_description_photo_id=photo_id)
-    elif message.text:
-        text = message.text.strip()
-        if len(text) < 10:
-            await message.answer("❌ অন্তত ১০ অক্ষরের নিয়ম লিখুন:", reply_markup=_cancel_inline())
-            return
-        await state.update_data(task_description=text, task_description_photo_id=None)
-    else:
-        await message.answer("❌ লেখা বা ছবি+caption পাঠান:", reply_markup=_cancel_inline())
+    if not message.text:
+        await message.answer(
+            "❌ লেখা পাঠান, অথবা আগে ছবি পাঠান তারপর লেখা:",
+            reply_markup=_cancel_inline(),
+        )
         return
+    text = message.text.strip()
+    if len(text) < 10:
+        await message.answer("❌ কমপক্ষে ১০ অক্ষরের নিয়ম লিখুন:", reply_markup=_cancel_inline())
+        return
+    await state.update_data(task_description=text, task_description_photo_id=None)
+    await _go_to_proof1(message, state)
 
+
+async def _go_to_proof1(message: Message, state: FSMContext) -> None:
     await state.set_state(CreateTaskStates.entering_proof1)
     await message.answer(
         "ধাপ ৪ — <b>প্রমাণ ১ (📸 স্ক্রিনশট)</b>\n\n"
@@ -925,7 +954,8 @@ async def on_task_confirmed(callback: CallbackQuery, session: AsyncSession, stat
 @router.callback_query(
     StateFilter(
         CreateTaskStates.choosing_category, CreateTaskStates.choosing_subcategory,
-        CreateTaskStates.entering_description, CreateTaskStates.entering_proof1,
+        CreateTaskStates.entering_description, CreateTaskStates.entering_description_text,
+        CreateTaskStates.entering_proof1,
         CreateTaskStates.entering_proof2, CreateTaskStates.entering_proof3,
         CreateTaskStates.entering_link, CreateTaskStates.entering_workers,
         CreateTaskStates.entering_reward, CreateTaskStates.confirming,
