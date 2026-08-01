@@ -130,7 +130,15 @@ async def on_startup(bot: Bot) -> None:
                 logger.info("✅ All balances reset to 0 (RESET_BALANCES=1)")
             except Exception as e:
                 logger.error(f"Balance reset failed: {e}")
-    logger.info("Database ready. v3")
+        if os.environ.get("RESET_TASK_PRICES") == "1":
+            try:
+                await conn.execute(sa_text(
+                    "UPDATE tasks SET reward=1 WHERE title LIKE '🔵 Facebook%' OR title LIKE '🔴 YouTube%'"
+                ))
+                logger.info("✅ Facebook+YouTube task rewards reset to 1 (RESET_TASK_PRICES=1)")
+            except Exception as e:
+                logger.error(f"Task price reset failed: {e}")
+    logger.info("Database ready. v4")
 
     me = await bot.get_me()
     logger.info(f"Running as @{me.username} (ID: {me.id})")
