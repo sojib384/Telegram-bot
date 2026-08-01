@@ -668,18 +668,40 @@ async def on_subcategory_selected(callback: CallbackQuery, state: FSMContext) ->
         f"কাজ শেষে স্ক্রিনশট পাঠান।</i>",
         parse_mode="HTML",
     )
-    await callback.message.answer("নিয়ম লিখুন:", reply_markup=_cancel_inline())
+    await callback.message.answer(
+        "নিয়ম লিখুন:\n\n"
+        "📝 <i>শুধু লেখা পাঠালেও হবে</i>\n"
+        "🖼 <i>ছবি + caption পাঠালে ছবি সহ নিয়ম সেভ হবে</i>",
+        reply_markup=_cancel_inline(),
+        parse_mode="HTML",
+    )
     await callback.answer()
 
 
 # Step 3 → Description entered → ask proof 1
 @router.message(StateFilter(CreateTaskStates.entering_description))
 async def on_description_entered(message: Message, state: FSMContext) -> None:
-    text = (message.text or "").strip()
-    if len(text) < 10:
-        await message.answer("❌ অন্তত ১০ অক্ষরের নিয়ম লিখুন:", reply_markup=_cancel_inline())
+    # Accept photo with caption
+    if message.photo:
+        photo_id = message.photo[-1].file_id
+        caption = (message.caption or "").strip()
+        if len(caption) < 10:
+            await message.answer(
+                "❌ ছবির সাথে caption-এ কমপক্ষে ১০ অক্ষরের নিয়ম লিখুন:",
+                reply_markup=_cancel_inline(),
+            )
+            return
+        await state.update_data(task_description=caption, task_description_photo_id=photo_id)
+    elif message.text:
+        text = message.text.strip()
+        if len(text) < 10:
+            await message.answer("❌ অন্তত ১০ অক্ষরের নিয়ম লিখুন:", reply_markup=_cancel_inline())
+            return
+        await state.update_data(task_description=text, task_description_photo_id=None)
+    else:
+        await message.answer("❌ লেখা বা ছবি+caption পাঠান:", reply_markup=_cancel_inline())
         return
-    await state.update_data(task_description=text)
+
     await state.set_state(CreateTaskStates.entering_proof1)
     await message.answer(
         "ধাপ ৪ — <b>প্রমাণ ১ (📸 স্ক্রিনশট)</b>\n\n"
@@ -835,6 +857,7 @@ async def on_task_confirmed(callback: CallbackQuery, session: AsyncSession, stat
     subcategory  = data["subcategory"]
     task_link    = data.get("task_link", "")
     description  = data.get("task_description", "")
+    description_photo_id = data.get("task_description_photo_id")
     proof1       = data.get("proof1_label", "")
     proof2       = data.get("proof2_label", "")
     proof3       = data.get("proof3_label", "")
@@ -873,7 +896,8 @@ async def on_task_confirmed(callback: CallbackQuery, session: AsyncSession, stat
     title = f"{cat_name} — {subcategory}"
     task = await TaskQueries.create(session=session, title=title,
         description=full_description, reward=reward, task_type="custom",
-        created_by=user.id, task_url=task_link, total_slots=num_workers)
+        created_by=user.id, task_url=task_link, total_slots=num_workers,
+        description_photo_id=description_photo_id)
 
     new_balance = user.balance - total_cost
 
